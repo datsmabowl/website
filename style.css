@@ -1,0 +1,316 @@
+/* ─── Reset & Base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:    #e8e8e8;
+  --text:  #111111;
+  --muted: #111111;
+  --font:  'Noto Sans Mono', monospace;
+  --gap:   25px;
+  --pad:   40px;
+  --cols:  4;
+}
+
+html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  height: 100vh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: var(--font); cursor: pointer; background: none; border: none; padding: 0; }
+
+/* ─── Centred container ─────────────────────────────────── */
+.wrap {
+  width: 100%;
+  padding: 0 var(--pad);
+}
+
+/* ─── Header ────────────────────────────────────────────── */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  border-bottom: none;
+  padding: 40px 0 0;
+  margin-bottom: 15px;
+}
+
+.header-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1px;
+  margin-bottom: 32px;
+}
+
+h1 {
+  font-size: clamp(22px, 3.5vw, 42px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+h1 a:hover { text-decoration: none; }
+
+.header-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  flex-shrink: 0;
+  align-self: flex-end;
+  padding-bottom: 3px;
+}
+.header-links a:hover { text-decoration: underline; }
+
+/* ─── Controls row ──────────────────────────────────────── */
+.header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 0px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.header-controls::-webkit-scrollbar { display: none; }
+
+/* ─── Animation toggle ─────────────────────────────── */
+.anim-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  align-self: flex-end;
+  padding-bottom: 5px;
+}
+.anim-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  opacity: 0.35;
+  white-space: nowrap;
+}
+.anim-pill {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font);
+  color: var(--text);
+  border: 1px solid var(--text);
+  border-radius: 20px;
+  width: 36px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.35;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.anim-pill:hover { opacity: 0.7; }
+.anim-pill.off {
+  opacity: 1;
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* ─── Tabs ──────────────────────────────────────────────── */
+.tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: flex-end;
+  white-space: nowrap;
+  gap: 0;
+  position: relative;
+  padding: 0;
+}
+
+/* Baseline that spans the full width of the tabs row */
+.tabs::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--text);
+  z-index: 0;
+}
+
+.tabs .tab {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  padding: 6px 18px 4px;
+  text-align: center;
+  letter-spacing: 0;
+  position: relative;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: -1px;
+  transition: opacity 0.12s;
+  opacity: 0.35;
+}
+
+.tabs .tab:hover  { opacity: 1; }
+.tabs .tab.active {
+  opacity: 1;
+  z-index: 1;
+  border-color: var(--text);
+  background: var(--bg);
+}
+
+/* Left inverse curve — smooth arc via radial-gradient */
+.tabs .tab.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 0;
+  width: 8px;
+  height: 9px;
+  background: radial-gradient(circle at 0 0, transparent 7px, var(--text) 7px, var(--text) 8px, var(--bg) 8px);
+  z-index: 2;
+}
+
+/* Right inverse curve — smooth arc via radial-gradient */
+.tabs .tab.active::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  bottom: 0;
+  width: 8px;
+  height: 9px;
+  background: radial-gradient(circle at 100% 0, transparent 7px, var(--text) 7px, var(--text) 8px, var(--bg) 8px);
+  z-index: 2;
+}
+
+.tabs .sep { display: none; }
+
+
+/* ─── Main — parametric grid fills remaining viewport ──── */
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+  padding-bottom: 25px;
+}
+
+.pgrid-wrap {
+  width: 100%;
+  padding: 0 var(--pad);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+}
+
+.pgrid-container {
+  position: relative;
+}
+
+.pgrid-half {
+  position: absolute;
+  overflow: hidden;
+}
+
+/* ─── Parametric Grid Cells ─────────────────────────────── */
+.pgrid-cell {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #555;
+  cursor: pointer;
+  display: block;
+  text-decoration: none;
+}
+
+.pgrid-cell video,
+.pgrid-cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Title overlay — hidden by default, shown on hover */
+.pgrid-cell .cell-title {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  line-height: 1.3;
+}
+
+.pgrid-cell:hover .cell-title {
+  opacity: 1;
+}
+
+/* ─── No Results ────────────────────────────────────────── */
+.no-results {
+  text-align: center;
+  color: var(--text);
+  opacity: 0.35;
+  font-size: 13px;
+  padding: 60px 0;
+}
+
+
+/* ─── Dev Controls Overlay ──────────────────────────────── */
+#pgridControls {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  color: #aaa;
+  font: 12px/1.6 monospace;
+  background: rgba(0,0,0,0.8);
+  padding: 10px 14px;
+  border-radius: 8px;
+  z-index: 1000;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#pgridControls strong { color: #ccc; }
+#pgridControls label { display: block; margin: 3px 0; }
+#pgridControls input[type=range] { width: 120px; vertical-align: middle; }
+#pgridControls input[type=color] { width: 28px; height: 18px; border: none; padding: 0; vertical-align: middle; cursor: pointer; background: none; }
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 1100px) { :root { --cols: 2; } }
+@media (max-width: 700px)  { :root { --cols: 2; --pad: 20px; } }
+@media (max-width: 480px)  {
+  :root { --cols: 1; --pad: 16px; }
+  .header-top { flex-wrap: wrap; }
+  .header-links { gap: 14px; }
+}

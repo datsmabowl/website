@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benny Dresner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="wrap">
+      <div class="header-top">
+        <h1><a href="index.html">Benny Dresner</a></h1>
+        <div class="header-links">
+          <a href="bio.html">About</a>
+          <a href="mailto:bdresnerreynolds@gmail.com">Contact</a>
+          <a href="https://www.instagram.com/bdr.spc/" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.linkedin.com/in/bdr" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <nav class="tabs" role="tablist" aria-label="Discipline">
+          <button class="tab active" data-tab="all" aria-selected="true">All</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="interactive" aria-selected="false">Interactive</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="generative-ai" aria-selected="false">Generative AI</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="development" aria-selected="false">Development</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="graphics" aria-selected="false">Graphics</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="architecture" aria-selected="false">Architecture</button>
+          <span class="sep">/</span>
+          <button class="tab" data-tab="illustration" aria-selected="false">Illustration</button>
+        </nav>
+
+        <div class="anim-control">
+          <span class="anim-label">Animation</span>
+          <button class="anim-pill" id="animToggle">On</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="pgrid-wrap">
+      <div class="pgrid-container" id="pgridContainer">
+        <div class="pgrid-half" id="pgridLeft"></div>
+        <div class="pgrid-half" id="pgridRight"></div>
+      </div>
+    </div>
+    <p class="no-results" id="no-results" hidden>— No projects match this filter —</p>
+  </main>
+
+  <script src="script.js"></script>
+
+  <!-- Dev controls (toggle with 'c' key) -->
+  <div id="pgridControls" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong>Grid Controls</strong>
+      <button id="pgridControlsClose" style="color:#aaa;font-size:16px;line-height:1;background:none;border:none;cursor:pointer;padding:0 0 0 12px">&times;</button>
+    </div>
+    <label>Rows: <input type="range" id="ctrlRows" min="2" max="10" value="4"> <span id="ctrlRowsVal">4</span></label>
+    <label>Cols: <input type="range" id="ctrlCols" min="2" max="10" value="4"> <span id="ctrlColsVal">4</span></label>
+    <label>Wave Amp: <input type="range" id="ctrlWaveAmp" min="0" max="100" value="95"> <span id="ctrlWaveAmpVal">95</span></label>
+    <label>Wave Freq: <input type="range" id="ctrlWaveFreq" min="5" max="60" value="56"> <span id="ctrlWaveFreqVal">56</span></label>
+    <label>Speed: <input type="range" id="ctrlSpeed" min="5" max="100" value="16"> <span id="ctrlSpeedVal">16</span></label>
+    <label>Gap: <input type="range" id="ctrlGap" min="1" max="40" value="16"> <span id="ctrlGapVal">16</span></label>
+    <label>Fillet: <input type="range" id="ctrlFillet" min="0" max="16" value="6"> <span id="ctrlFilletVal">6</span></label>
+    <label>Border: <input type="range" id="ctrlBorderWidth" min="0" max="6" value="1" step="0.5"> <span id="ctrlBorderWidthVal">1</span>px</label>
+    <label>Mode: <select id="ctrlMode">
+      <option value="wave">Wave</option>
+      <option value="ripple">Ripple</option>
+      <option value="twist">Twist</option>
+      <option value="breathe">Breathe</option>
+      <option value="cascade">Cascade</option>
+    </select></label>
+    <label>BG: <input type="color" id="ctrlBg" value="#e8e8e8"></label>
+    <label>Cell Border: <input type="color" id="ctrlBorderColor" value="#555555"></label>
+  </div>
+</body>
+</html>

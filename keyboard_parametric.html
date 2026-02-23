@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Parametric Keyboard Grid</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a1a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+  canvas { border-radius: 8px; }
+  #controls {
+    position: fixed; top: 16px; left: 16px; color: #aaa; font: 13px/1.6 monospace;
+    background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px;
+  }
+  #controls label { display: block; margin: 4px 0; }
+  #controls input[type=range] { width: 140px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="controls">
+  <strong style="color:#ccc">Parametric Keyboard</strong><br>
+  <label>Rows: <input type="range" id="rows" min="3" max="12" value="6"> <span id="rowsVal">6</span></label>
+  <label>Cols: <input type="range" id="cols" min="3" max="12" value="5"> <span id="colsVal">5</span></label>
+  <label>Wave Amp: <input type="range" id="waveAmp" min="0" max="100" value="40"> <span id="waveAmpVal">40</span></label>
+  <label>Wave Freq: <input type="range" id="waveFreq" min="5" max="60" value="20"> <span id="waveFreqVal">20</span></label>
+  <label>Speed: <input type="range" id="speed" min="5" max="100" value="35"> <span id="speedVal">35</span></label>
+  <label>Key Size: <input type="range" id="keySize" min="10" max="60" value="36"> <span id="keySizeVal">36</span></label>
+  <label>Gap: <input type="range" id="gap" min="1" max="20" value="5"> <span id="gapVal">5</span></label>
+  <label>Fillet: <input type="range" id="fillet" min="0" max="16" value="6"> <span id="filletVal">6</span></label>
+  <label>Mode: <select id="mode">
+    <option value="wave">Wave</option>
+    <option value="ripple">Ripple</option>
+    <option value="twist">Twist</option>
+    <option value="breathe">Breathe</option>
+    <option value="cascade">Cascade</option>
+  </select></label>
+  <label>Color: <select id="colorMode">
+    <option value="green">Green Tint</option>
+    <option value="height">Height Map</option>
+    <option value="rainbow">Rainbow</option>
+    <option value="mono">Monochrome</option>
+  </select></label>
+  <label><input type="checkbox" id="showGrid" checked> Show grid lines</label>
+  <label><input type="checkbox" id="lighting" checked> Lighting</label>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  // 16:9 aspect ratio
+  const maxH = window.innerHeight - 40;
+  const maxW = window.innerWidth - 40;
+  if (maxW / maxH > 16 / 9) {
+    canvas.height = maxH;
+    canvas.width = Math.floor(maxH * 16 / 9);
+  } else {
+    canvas.width = maxW;
+    canvas.height = Math.floor(maxW * 9 / 16);
+  }
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Slider value display
+document.querySelectorAll('#controls input[type=range]').forEach(el => {
+  const span = document.getElementById(el.id + 'Val');
+  el.addEventListener('input', () => span.textContent = el.value);
+});
+
+function getParam(id) { return +document.getElementById(id).value; }
+function getCheck(id) { return document.getElementById(id).checked; }
+function getSelect(id) { return document.getElementById(id).value; }
+
+// Draw a rounded rectangle
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Raw weight for a cell — varies per row+col so vertical lines break between rows
+function cellWeight(row, col, rows, cols, t, mode, waveAmp, waveFreq) {
+  const a = waveAmp / 100;
+  const freq = waveFreq / 100 * 0.8;
+  const cx = (cols - 1) / 2;
+  const cy = (rows - 1) / 2;
+  let v = 0;
+
+  switch (mode) {
+    case 'wave':
+      v = Math.sin(col * freq * 1.2 + t + row * 0.4);
+      break;
+    case 'ripple': {
+      const dist = Math.sqrt((row - cy) ** 2 + (col - cx) ** 2);
+      v = Math.sin(dist * freq * 1.5 - t * 2);
+      break;
+    }
+    case 'twist':
+      v = Math.sin(col * freq + Math.sin(t) * (col + row * 0.5) * 0.2);
+      break;
+    case 'breathe':
+      v = Math.sin(t * 0.8) * Math.sin(col * freq * 0.6 + row * 0.3);
+      break;
+    case 'cascade':
+      v = Math.sin(col * freq + t * 1.5 + row * 0.5);
+      break;
+  }
+  // Return a positive weight (1 = base, varies from ~0.3 to ~1.7 at full amp)
+  return 1 + a * v * 0.7;
+}
+
+// Row height weight — shared per row so horizontal lines stay straight
+function rowWeight(row, rows, t, mode, waveAmp, waveFreq) {
+  const a = waveAmp / 100;
+  const freq = waveFreq / 100 * 0.8;
+  const cy = (rows - 1) / 2;
+  let v = 0;
+
+  switch (mode) {
+    case 'wave':
+      v = Math.cos(row * freq * 1.2 + t * 0.7);
+      break;
+    case 'ripple':
+      v = Math.sin(Math.abs(row - cy) * freq * 1.5 - t * 2);
+      break;
+    case 'twist':
+      v = Math.cos(row * freq + Math.sin(t * 0.9) * row * 0.2);
+      break;
+    case 'breathe':
+      v = Math.sin(t * 0.8) * Math.cos(row * freq * 0.6);
+      break;
+    case 'cascade':
+      v = Math.sin(row * freq * 0.5 + t);
+      break;
+  }
+  return 1 + a * v * 0.7;
+}
+
+function getColor(row, col, rows, cols, brightness, colorMode) {
+  switch (colorMode) {
+    case 'green': {
+      const base = 175 + brightness * 80;
+      return `rgb(${base - 8}, ${base + 8}, ${base - 20})`;
+    }
+    case 'height': {
+      const v = 160 + brightness * 120;
+      return `rgb(${v * 0.8}, ${v}, ${v * 0.7})`;
+    }
+    case 'rainbow': {
+      const hue = ((col / cols) * 360 + brightness * 60) % 360;
+      const l = 55 + brightness * 20;
+      return `hsl(${hue}, 40%, ${l}%)`;
+    }
+    case 'mono': {
+      const v = 170 + brightness * 80;
+      return `rgb(${v}, ${v}, ${v})`;
+    }
+  }
+}
+
+let time = 0;
+let lastTs = 0;
+
+function draw(ts) {
+  const dt = lastTs ? (ts - lastTs) / 1000 : 0.016;
+  lastTs = ts;
+  time += dt * getParam('speed') / 35;
+
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(0, 0, W, H);
+
+  const rows = getParam('rows');
+  const cols = getParam('cols');
+  const keySize = getParam('keySize');
+  const gap = getParam('gap');
+  const fillet = getParam('fillet');
+  const waveAmp = getParam('waveAmp');
+  const waveFreq = getParam('waveFreq');
+  const mode = getSelect('mode');
+  const colorMode = getSelect('colorMode');
+  const showGrid = getCheck('showGrid');
+  const lighting = getCheck('lighting');
+
+  // --- Reusable grid drawing function ---
+  // axis='h' → per-row width redistribution (vertical lines break)
+  // axis='v' → per-col height redistribution (horizontal lines break)
+  function drawGrid(ox, oy, gridW, gridH, nRows, nCols, axis, tOffset) {
+    const totalGapW = (nCols - 1) * gap;
+    const totalGapH = (nRows - 1) * gap;
+    const availW = gridW - totalGapW;
+    const availH = gridH - totalGapH;
+    const t = time + tOffset;
+
+    if (axis === 'h') {
+      // HORIZONTAL mode: shared row heights, per-row cell widths
+      const rWeights = [];
+      let rWeightSum = 0;
+      for (let r = 0; r < nRows; r++) {
+        rWeights[r] = rowWeight(r, nRows, t, mode, waveAmp, waveFreq);
+        rWeightSum += rWeights[r];
+      }
+      const rH = [];
+      for (let r = 0; r < nRows; r++) rH[r] = availH * rWeights[r] / rWeightSum;
+      const rY = [0];
+      for (let r = 1; r < nRows; r++) rY[r] = rY[r-1] + rH[r-1] + gap;
+
+      const cW = [], cX = [];
+      for (let r = 0; r < nRows; r++) {
+        const ws = []; let wSum = 0;
+        for (let c = 0; c < nCols; c++) {
+          ws[c] = cellWeight(r, c, nRows, nCols, t, mode, waveAmp, waveFreq);
+          wSum += ws[c];
+        }
+        cW[r] = []; cX[r] = [0];
+        for (let c = 0; c < nCols; c++) {
+          cW[r][c] = availW * ws[c] / wSum;
+          if (c > 0) cX[r][c] = cX[r][c-1] + cW[r][c-1] + gap;
+        }
+      }
+
+      if (showGrid) {
+        ctx.strokeStyle = 'rgba(80, 90, 70, 0.3)';
+        ctx.lineWidth = 1;
+        for (let r = 1; r < nRows; r++) {
+          const yMid = oy + rY[r] - gap / 2;
+          ctx.beginPath(); ctx.moveTo(ox, yMid); ctx.lineTo(ox + gridW, yMid); ctx.stroke();
+        }
+        for (let r = 0; r < nRows; r++) {
+          for (let c = 1; c < nCols; c++) {
+            const xMid = ox + cX[r][c] - gap / 2;
+            ctx.beginPath(); ctx.moveTo(xMid, oy + rY[r]); ctx.lineTo(xMid, oy + rY[r] + rH[r]); ctx.stroke();
+          }
+        }
+      }
+
+      for (let r = 0; r < nRows; r++) {
+        for (let c = 0; c < nCols; c++) {
+          drawKeycap(ox + cX[r][c], oy + rY[r], cW[r][c], rH[r], r, c, nRows, nCols, availW, availH);
+        }
+      }
+
+    } else {
+      // VERTICAL mode: shared column widths, per-col cell heights
+      const cWeights = [];
+      let cWeightSum = 0;
+      for (let c = 0; c < nCols; c++) {
+        cWeights[c] = rowWeight(c, nCols, t, mode, waveAmp, waveFreq);
+        cWeightSum += cWeights[c];
+      }
+      const cW2 = [];
+      for (let c = 0; c < nCols; c++) cW2[c] = availW * cWeights[c] / cWeightSum;
+      const cX2 = [0];
+      for (let c = 1; c < nCols; c++) cX2[c] = cX2[c-1] + cW2[c-1] + gap;
+
+      const rH2 = [], rY2 = [];
+      for (let c = 0; c < nCols; c++) {
+        const ws = []; let wSum = 0;
+        for (let r = 0; r < nRows; r++) {
+          // Reuse cellWeight with swapped args for the rotated effect
+          ws[r] = cellWeight(c, r, nCols, nRows, t, mode, waveAmp, waveFreq);
+          wSum += ws[r];
+        }
+        rH2[c] = []; rY2[c] = [0];
+        for (let r = 0; r < nRows; r++) {
+          rH2[c][r] = availH * ws[r] / wSum;
+          if (r > 0) rY2[c][r] = rY2[c][r-1] + rH2[c][r-1] + gap;
+        }
+      }
+
+      if (showGrid) {
+        ctx.strokeStyle = 'rgba(80, 90, 70, 0.3)';
+        ctx.lineWidth = 1;
+        for (let c = 1; c < nCols; c++) {
+          const xMid = ox + cX2[c] - gap / 2;
+          ctx.beginPath(); ctx.moveTo(xMid, oy); ctx.lineTo(xMid, oy + gridH); ctx.stroke();
+        }
+        for (let c = 0; c < nCols; c++) {
+          for (let r = 1; r < nRows; r++) {
+            const yMid = oy + rY2[c][r] - gap / 2;
+            ctx.beginPath(); ctx.moveTo(ox + cX2[c], yMid); ctx.lineTo(ox + cX2[c] + cW2[c], yMid); ctx.stroke();
+          }
+        }
+      }
+
+      for (let r = 0; r < nRows; r++) {
+        for (let c = 0; c < nCols; c++) {
+          drawKeycap(ox + cX2[c], oy + rY2[c][r], cW2[c], rH2[c][r], r, c, nRows, nCols, availW, availH);
+        }
+      }
+    }
+  }
+
+  // --- Keycap renderer ---
+  function drawKeycap(x, y, w, h, r, c, nRows, nCols, availW, availH) {
+    const brightness = (w / (availW / nCols) + h / (availH / nRows) - 2) * 0.3;
+    const avgScale = (w + h) / (availW / nCols + availH / nRows);
+    const f = Math.min(fillet * (1 + (1 - avgScale) * 2), Math.min(w, h) / 2);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 2 + brightness * 3;
+    ctx.shadowOffsetY = 3 + brightness * 3;
+
+    const baseColor = getColor(r, c, nRows, nCols, brightness, colorMode);
+    roundRect(ctx, x, y, w, h, f);
+    ctx.fillStyle = baseColor;
+    ctx.fill();
+    ctx.restore();
+
+    if (lighting) {
+      const grad = ctx.createLinearGradient(x, y, x, y + h);
+      grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+      grad.addColorStop(0.35, 'rgba(255,255,255,0.03)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.12)');
+      roundRect(ctx, x, y, w, h, f);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      const sx = x + w * 0.35, sy = y + h * 0.2;
+      const specGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.min(w, h) * 0.25);
+      specGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
+      specGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = specGrad;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    roundRect(ctx, x, y, w, h, f);
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const inset = Math.min(w, h) * 0.15;
+    roundRect(ctx, x + inset, y + inset, w - inset * 2, h - inset * 2, Math.max(f - 2, 1));
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // --- Layout: 16:9 perimeter, two halves (each 8:9) ---
+  const pad = 10;
+  const periH = H - pad * 2;
+  const periW = Math.min(W - pad * 2, periH * 16 / 9);
+  const actualH = Math.min(periH, periW * 9 / 16);
+  const actualW = actualH * 16 / 9;
+  const startX = (W - actualW) / 2;
+  const startY = (H - actualH) / 2;
+  const halfW = (actualW - gap) / 2;
+
+  // Outer 16:9 border
+  ctx.strokeStyle = 'rgba(80, 90, 70, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(startX, startY, actualW, actualH);
+
+  // Left half: horizontal redistribution (vertical lines break between rows)
+  drawGrid(startX, startY, halfW, actualH, rows, cols, 'h', 0);
+
+  // Right half: vertical redistribution (horizontal lines break between columns)
+  drawGrid(startX + halfW + gap, startY, halfW, actualH, rows, cols, 'v', 0);
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

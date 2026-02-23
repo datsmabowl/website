@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Parametric Video Grid</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #333333; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+
+  #container { position: relative; }
+
+  .grid-half { position: absolute; overflow: hidden; }
+
+  .cell {
+    position: absolute;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid #555555;
+    cursor: pointer;
+  }
+
+  .cell video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(1) brightness(1.25);
+    transition: filter 0.35s ease;
+  }
+
+  .cell:hover video {
+    filter: grayscale(0) brightness(1);
+  }
+
+  #controls {
+    position: fixed; top: 16px; left: 16px; color: #aaa; font: 13px/1.6 monospace;
+    background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px; z-index: 10;
+  }
+  #controls label { display: block; margin: 4px 0; }
+  #controls input[type=range] { width: 140px; vertical-align: middle; }
+  #controls input[type=color] { width: 32px; height: 20px; border: none; padding: 0; vertical-align: middle; cursor: pointer; background: none; }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div class="grid-half" id="gridLeft"></div>
+  <div class="grid-half" id="gridRight"></div>
+</div>
+
+<div id="controls">
+  <strong style="color:#ccc">Parametric Video Grid</strong><br>
+  <label>Rows: <input type="range" id="rows" min="2" max="10" value="4"> <span id="rowsVal">4</span></label>
+  <label>Cols: <input type="range" id="cols" min="2" max="10" value="4"> <span id="colsVal">4</span></label>
+  <label>Wave Amp: <input type="range" id="waveAmp" min="0" max="100" value="95"> <span id="waveAmpVal">95</span></label>
+  <label>Wave Freq: <input type="range" id="waveFreq" min="5" max="60" value="56"> <span id="waveFreqVal">56</span></label>
+  <label>Speed: <input type="range" id="speed" min="5" max="100" value="16"> <span id="speedVal">16</span></label>
+  <label>Gap: <input type="range" id="gap" min="1" max="20" value="16"> <span id="gapVal">16</span></label>
+  <label>Fillet: <input type="range" id="fillet" min="0" max="16" value="6"> <span id="filletVal">6</span></label>
+  <label>Mode: <select id="mode">
+    <option value="wave">Wave</option>
+    <option value="ripple">Ripple</option>
+    <option value="twist">Twist</option>
+    <option value="breathe">Breathe</option>
+    <option value="cascade">Cascade</option>
+  </select></label>
+  <label>Border: <input type="range" id="borderWidth" min="0" max="6" value="1" step="0.5"> <span id="borderWidthVal">1</span>px</label>
+  <label>BG: <input type="color" id="bgColor" value="#333333"></label>
+  <label>Cell Border: <input type="color" id="cellBorderColor" value="#555555"></label>
+  <label><input type="checkbox" id="showBorder"> Show outer border</label>
+</div>
+
+<script>
+// ── Video sources (from site portfolio) ──────────────────
+const VIDEOS = [
+  "video/procedural.mp4",
+  "video/chivas.mp4",
+  "video/christie.mp4",
+  "video/image2particles.mp4",
+  "video/kallida.mp4",
+  "video/single-cell.mp4",
+  "video/lloyds.mp4",
+  "video/lenovo.mp4",
+  "video/genesis.mp4",
+  "video/typething.mp4",
+  "video/ceding-space.mp4",
+  "video/exquisite-human.mp4",
+  "video/making-worlds.mp4",
+  "video/movie-finder.mp4",
+  "video/domestic-data-ui.mp4",
+  "video/hw.mp4",
+  "video/keysound.mp4",
+  "video/eco-sim.mp4",
+  "video/emergent.mp4",
+  "video/fka-twigs.mp4",
+  "video/shubzin.mp4",
+  "video/domestic-data.mp4",
+  "video/procedural.mp4",
+  "video/mosquito-search.mp4",
+];
+
+// ── DOM refs ─────────────────────────────────────────────
+const container = document.getElementById('container');
+const gridLeft  = document.getElementById('gridLeft');
+const gridRight = document.getElementById('gridRight');
+
+// ── Slider wiring ────────────────────────────────────────
+document.querySelectorAll('#controls input[type=range]').forEach(el => {
+  const span = document.getElementById(el.id + 'Val');
+  if (span) el.addEventListener('input', () => { span.textContent = el.value; rebuild(); });
+});
+document.getElementById('mode').addEventListener('change', () => {});
+document.getElementById('showBorder').addEventListener('change', () => {});
+document.getElementById('bgColor').addEventListener('input', (e) => {
+  document.body.style.background = e.target.value;
+});
+document.getElementById('cellBorderColor').addEventListener('input', () => { updateCellBorders(); });
+document.getElementById('borderWidth').addEventListener('input', (e) => {
+  document.getElementById('borderWidthVal').textContent = e.target.value;
+  updateCellBorders();
+});
+
+function updateCellBorders() {
+  const color = document.getElementById('cellBorderColor').value;
+  const width = document.getElementById('borderWidth').value;
+  document.querySelectorAll('.cell').forEach(cell => {
+    cell.style.borderColor = color;
+    cell.style.borderWidth = width + 'px';
+  });
+}
+
+function getP(id) { return +document.getElementById(id).value; }
+function getC(id) { return document.getElementById(id).checked; }
+function getS(id) { return document.getElementById(id).value; }
+
+// ── Cell pool ────────────────────────────────────────────
+// We keep DOM cells in pools for left & right grids, create/remove as needed
+let leftCells  = [];
+let rightCells = [];
+
+function ensureCells(parent, pool, count) {
+  const borderColor = document.getElementById('cellBorderColor').value;
+  const borderWidth = document.getElementById('borderWidth').value;
+  while (pool.length < count) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.borderColor = borderColor;
+    cell.style.borderWidth = borderWidth + 'px';
+    const vid = document.createElement('video');
+    vid.muted = true;
+    vid.loop = true;
+    vid.playsInline = true;
+    vid.autoplay = true;
+    vid.preload = 'auto';
+    cell.appendChild(vid);
+    parent.appendChild(cell);
+    pool.push(cell);
+  }
+  while (pool.length > count) {
+    const cell = pool.pop();
+    cell.remove();
+  }
+  // Assign video sources (cycle if needed)
+  for (let i = 0; i < count; i++) {
+    const vid = pool[i].querySelector('video');
+    const src = VIDEOS[i % VIDEOS.length];
+    if (vid.getAttribute('data-src') !== src) {
+      vid.setAttribute('data-src', src);
+      vid.src = src;
+      vid.play().catch(() => {});
+    }
+  }
+}
+
+function rebuild() {
+  const rows = getP('rows');
+  const cols = getP('cols');
+  const total = rows * cols;
+  ensureCells(gridLeft, leftCells, total);
+  ensureCells(gridRight, rightCells, total);
+}
+
+// ── Weight functions (same as canvas version) ────────────
+function cellWeight(row, col, rows, cols, t, mode, waveAmp, waveFreq) {
+  const a = waveAmp / 100;
+  const freq = waveFreq / 100 * 0.8;
+  const cx = (cols - 1) / 2;
+  const cy = (rows - 1) / 2;
+  let v = 0;
+  switch (mode) {
+    case 'wave':
+      v = Math.sin(col * freq * 1.2 + t + row * 0.4); break;
+    case 'ripple': {
+      const dist = Math.sqrt((row - cy) ** 2 + (col - cx) ** 2);
+      v = Math.sin(dist * freq * 1.5 - t * 2); break;
+    }
+    case 'twist':
+      v = Math.sin(col * freq + Math.sin(t) * (col + row * 0.5) * 0.2); break;
+    case 'breathe':
+      v = Math.sin(t * 0.8) * Math.sin(col * freq * 0.6 + row * 0.3); break;
+    case 'cascade':
+      v = Math.sin(col * freq + t * 1.5 + row * 0.5); break;
+  }
+  return 1 + a * v * 0.7;
+}
+
+function rowWeight(row, rows, t, mode, waveAmp, waveFreq) {
+  const a = waveAmp / 100;
+  const freq = waveFreq / 100 * 0.8;
+  const cy = (rows - 1) / 2;
+  let v = 0;
+  switch (mode) {
+    case 'wave':
+      v = Math.cos(row * freq * 1.2 + t * 0.7); break;
+    case 'ripple':
+      v = Math.sin(Math.abs(row - cy) * freq * 1.5 - t * 2); break;
+    case 'twist':
+      v = Math.cos(row * freq + Math.sin(t * 0.9) * row * 0.2); break;
+    case 'breathe':
+      v = Math.sin(t * 0.8) * Math.cos(row * freq * 0.6); break;
+    case 'cascade':
+      v = Math.sin(row * freq * 0.5 + t); break;
+  }
+  return 1 + a * v * 0.7;
+}
+
+// ── Layout sizing ────────────────────────────────────────
+function getLayout() {
+  const maxH = window.innerHeight - 40;
+  const maxW = window.innerWidth - 40;
+  const gap = getP('gap');
+
+  // 16:9 overall
+  let W, H;
+  if (maxW / maxH > 16 / 9) {
+    H = maxH; W = Math.floor(H * 16 / 9);
+  } else {
+    W = maxW; H = Math.floor(W * 9 / 16);
+  }
+
+  const halfW = (W - gap) / 2;
+  return { W, H, halfW, gap };
+}
+
+function applyContainerSize() {
+  const { W, H, halfW, gap } = getLayout();
+  container.style.width  = W + 'px';
+  container.style.height = H + 'px';
+
+  gridLeft.style.left   = '0px';
+  gridLeft.style.top    = '0px';
+  gridLeft.style.width  = halfW + 'px';
+  gridLeft.style.height = H + 'px';
+
+  gridRight.style.left   = (halfW + gap) + 'px';
+  gridRight.style.top    = '0px';
+  gridRight.style.width  = halfW + 'px';
+  gridRight.style.height = H + 'px';
+
+  const showBorder = getC('showBorder');
+  container.style.border = showBorder ? '1px solid rgba(80,90,70,0.2)' : 'none';
+}
+
+// ── Animation loop ───────────────────────────────────────
+let time = 0;
+let lastTs = 0;
+
+function animate(ts) {
+  const dt = lastTs ? (ts - lastTs) / 1000 : 0.016;
+  lastTs = ts;
+  time += dt * getP('speed') / 35;
+
+  const rows = getP('rows');
+  const cols = getP('cols');
+  const gap  = getP('gap');
+  const fillet = getP('fillet');
+  const waveAmp  = getP('waveAmp');
+  const waveFreq = getP('waveFreq');
+  const mode = getS('mode');
+
+  applyContainerSize();
+
+  const { halfW, H } = getLayout();
+
+  // ── Left half: horizontal redistribution (vertical lines break) ──
+  layoutH(leftCells, 0, 0, halfW, H, rows, cols, gap, fillet, time, mode, waveAmp, waveFreq);
+
+  // ── Right half: vertical redistribution (horizontal lines break) ──
+  layoutV(rightCells, 0, 0, halfW, H, rows, cols, gap, fillet, time, mode, waveAmp, waveFreq);
+
+  requestAnimationFrame(animate);
+}
+
+function layoutH(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode, waveAmp, waveFreq) {
+  const totalGapW = (nCols - 1) * gap;
+  const totalGapH = (nRows - 1) * gap;
+  const availW = gridW - totalGapW;
+  const availH = gridH - totalGapH;
+
+  // Shared row heights
+  const rWeights = []; let rWSum = 0;
+  for (let r = 0; r < nRows; r++) {
+    rWeights[r] = rowWeight(r, nRows, t, mode, waveAmp, waveFreq);
+    rWSum += rWeights[r];
+  }
+  const rH = [], rY = [0];
+  for (let r = 0; r < nRows; r++) {
+    rH[r] = availH * rWeights[r] / rWSum;
+    if (r > 0) rY[r] = rY[r-1] + rH[r-1] + gap;
+  }
+
+  // Per-row cell widths
+  for (let r = 0; r < nRows; r++) {
+    const ws = []; let wSum = 0;
+    for (let c = 0; c < nCols; c++) {
+      ws[c] = cellWeight(r, c, nRows, nCols, t, mode, waveAmp, waveFreq);
+      wSum += ws[c];
+    }
+    let cx = 0;
+    for (let c = 0; c < nCols; c++) {
+      const w = availW * ws[c] / wSum;
+      const idx = r * nCols + c;
+      const cell = cells[idx];
+      if (cell) {
+        const f = Math.min(fillet, Math.min(w, rH[r]) / 2);
+        cell.style.left   = (ox + cx) + 'px';
+        cell.style.top    = (oy + rY[r]) + 'px';
+        cell.style.width  = w + 'px';
+        cell.style.height = rH[r] + 'px';
+        cell.style.borderRadius = f + 'px';
+      }
+      cx += w + gap;
+    }
+  }
+}
+
+function layoutV(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode, waveAmp, waveFreq) {
+  const totalGapW = (nCols - 1) * gap;
+  const totalGapH = (nRows - 1) * gap;
+  const availW = gridW - totalGapW;
+  const availH = gridH - totalGapH;
+
+  // Shared column widths
+  const cWeights = []; let cWSum = 0;
+  for (let c = 0; c < nCols; c++) {
+    cWeights[c] = rowWeight(c, nCols, t, mode, waveAmp, waveFreq);
+    cWSum += cWeights[c];
+  }
+  const cW = [], cX = [0];
+  for (let c = 0; c < nCols; c++) {
+    cW[c] = availW * cWeights[c] / cWSum;
+    if (c > 0) cX[c] = cX[c-1] + cW[c-1] + gap;
+  }
+
+  // Per-column cell heights
+  for (let c = 0; c < nCols; c++) {
+    const ws = []; let wSum = 0;
+    for (let r = 0; r < nRows; r++) {
+      ws[r] = cellWeight(c, r, nCols, nRows, t, mode, waveAmp, waveFreq);
+      wSum += ws[r];
+    }
+    let cy = 0;
+    for (let r = 0; r < nRows; r++) {
+      const h = availH * ws[r] / wSum;
+      const idx = r * nCols + c;
+      const cell = cells[idx];
+      if (cell) {
+        const f = Math.min(fillet, Math.min(cW[c], h) / 2);
+        cell.style.left   = (ox + cX[c]) + 'px';
+        cell.style.top    = (oy + cy) + 'px';
+        cell.style.width  = cW[c] + 'px';
+        cell.style.height = h + 'px';
+        cell.style.borderRadius = f + 'px';
+      }
+      cy += h + gap;
+    }
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────
+rebuild();
+requestAnimationFrame(animate);
+window.addEventListener('resize', () => { applyContainerSize(); });
+</script>
+</body>
+</html>
