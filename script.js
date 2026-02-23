@@ -169,16 +169,7 @@ const PROJECTS = [
     filters: ["art"],
     wide:    false,
   },
-  {
-    id:      "making-worlds",
-    title:   "Making Worlds",
-    media:   "video/preview/making-worlds.mp4",
-    poster:  "",
-    url:     "",
-    tabs:    ["generative-ai", "interactive", "development"],
-    filters: ["art"],
-    wide:    false,
-  },
+
   {
     id:      "movie-finder",
     title:   "Movie Finder App",
@@ -229,15 +220,7 @@ const PROJECTS = [
     filters: ["art"],
     wide:    false,
   },
-  {
-    id:      "rodriguez-jnr",
-    title:   "Rodriguez Jnr",
-    media:   "images/rodriguez-jnr.jpg",
-    url:     "https://bdr.space/rodriguezjnr/",
-    tabs:    ["graphics"],
-    filters: ["commercial"],
-    wide:    false,
-  },
+
   {
     id:      "threads",
     title:   "Threads",
@@ -288,7 +271,7 @@ const PROJECTS = [
     title:   "Avn'tot'ny",
     media:   "images/avntotny.png",
     url:     "https://bdr.space/avntotny/",
-    tabs:    ["illustration", "graphics"],
+    tabs:    ["graphics"],
     filters: ["art"],
     wide:    false,
   },
