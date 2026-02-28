@@ -236,6 +236,7 @@ main {
 .pgrid-half {
   position: absolute;
   overflow: hidden;
+  pointer-events: none;
 }
 
 /* ─── Parametric Grid Cells ─────────────────────────────── */
@@ -247,6 +248,7 @@ main {
   cursor: pointer;
   display: block;
   text-decoration: none;
+  pointer-events: auto;
 }
 
 .pgrid-cell video,

@@ -651,14 +651,21 @@ function buildCells() {
   noResults.hidden = true;
 
   const nCols = PGRID.cols;
+  const totalRows = PGRID.rows;
+  const leftMaxRows  = Math.ceil(totalRows / 2);
+  const rightMaxRows = Math.floor(totalRows / 2);
   leftCols  = nCols;
   rightCols = nCols;
 
   // Interleave: even visual rows → left grid, odd visual rows → right grid
+  // Cap at PGRID.rows total visual rows so the grid fills (not overflows) the viewport
   const leftProjects = [], rightProjects = [];
-  for (let visualRow = 0; visualRow * nCols < projects.length; visualRow++) {
-    const batch = projects.slice(visualRow * nCols, (visualRow + 1) * nCols);
-    if (visualRow % 2 === 0) leftProjects.push(...batch);
+  for (let vr = 0; vr * nCols < projects.length; vr++) {
+    const isLeft = vr % 2 === 0;
+    if (isLeft  && leftProjects.length  >= leftMaxRows  * nCols) continue;
+    if (!isLeft && rightProjects.length >= rightMaxRows * nCols) continue;
+    const batch = projects.slice(vr * nCols, (vr + 1) * nCols);
+    if (isLeft) leftProjects.push(...batch);
     else rightProjects.push(...batch);
   }
 
@@ -993,9 +1000,10 @@ function pgridAnimate(ts) {
 
   const leftRows  = leftCells.length  ? Math.ceil(leftCells.length  / cols) : 0;
   const rightRows = rightCells.length ? Math.ceil(rightCells.length / cols) : 0;
+  const totalRows = leftRows + rightRows;
 
-  // Square cells: row height = cell width
-  const rowH = (W - (cols - 1) * gap) / cols;
+  // Row height fills the viewport across all interleaved rows
+  const rowH = totalRows > 0 ? (H - (totalRows - 1) * gap) / totalRows : H;
 
   layoutInterleaved(leftCells,  W, cols, leftRows,  gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left',  0, rowH);
   layoutInterleaved(rightCells, W, cols, rightRows, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right', 1, rowH);
