@@ -249,7 +249,7 @@ main {
 }
 
 .pgrid-cell video,
-.pgrid-cell img {
+.pgrid-cell > img {
   display: block;
   width: 100%;
   height: 100%;
@@ -259,18 +259,20 @@ main {
 /* ─── Slideshow cells ───────────────────────────────────── */
 .pgrid-slides {
   position: absolute;
-  inset: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: grid;
   overflow: hidden;
 }
 
+/* All slides share the same grid cell so they stack */
 .pgrid-slide {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   opacity: 0;
   transition: opacity 2s ease;
+  display: block;
 }
 
 .pgrid-slide.active {
