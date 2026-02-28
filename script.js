@@ -114,7 +114,7 @@ const PROJECTS = [
   {
     id:      "itoa-exit",
     title:   "Itoa — Exit Records",
-    media:   "images/itoa.png",
+    media:   "images/itoa.jpg",
     url:     "https://bdr.space/itoa-exit/",
     tabs:    ["graphics"],
     filters: ["commercial"],
@@ -290,7 +290,7 @@ const PROJECTS = [
   {
     id:      "avntotny",
     title:   "Avn'tot'ny",
-    media:   "images/avntotny.png",
+    media:   "images/avntotny.jpg",
     url:     "https://bdr.space/avntotny/",
     tabs:    ["graphics"],
     filters: ["art"],
@@ -368,7 +368,7 @@ const PROJECTS = [
   {
     id:      "art-illustration",
     title:   "Art & Illustration",
-    slides:  ["images/art-illustration-1.jpg", "images/art-illustration-2.png", "images/art-illustration-3.png", "images/art-illustration-4.png", "images/art-illustration-6.jpg", "images/art-illustration-7.jpg", "images/art-illustration-9.png", "images/art-illustration-10.jpg", "images/art-illustration-11.png", "images/art-illustration-15.png"],
+    slides:  ["images/art-illustration-1.jpg", "images/art-illustration-2.jpg", "images/art-illustration-3.jpg", "images/art-illustration-4.jpg", "images/art-illustration-6.jpg", "images/art-illustration-7.jpg", "images/art-illustration-9.jpg", "images/art-illustration-10.jpg", "images/art-illustration-11.jpg", "images/art-illustration-15.jpg"],
     url:     "https://bdr.space/art-illustration/",
     tabs:    ["graphics"],
     filters: ["art"],
