@@ -524,7 +524,8 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
   }
   while (pool.length > count) {
     const cell = pool.pop();
-    if (cell._slideshowTimer) clearInterval(cell._slideshowTimer);
+    if (cell._slideshowTimeout) { clearTimeout(cell._slideshowTimeout); cell._slideshowTimeout = null; }
+    if (cell._slideshowTimer) { clearInterval(cell._slideshowTimer); }
     cell.remove();
   }
 
@@ -566,10 +567,8 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
     if (titleEl) titleEl.textContent = p.title || '';
 
     // Clear any existing slideshow before reassigning
-    if (cell._slideshowTimer) {
-      clearInterval(cell._slideshowTimer);
-      delete cell._slideshowTimer;
-    }
+    if (cell._slideshowTimeout) { clearTimeout(cell._slideshowTimeout); cell._slideshowTimeout = null; }
+    if (cell._slideshowTimer) { clearInterval(cell._slideshowTimer); delete cell._slideshowTimer; }
 
     // Swap media: slideshow / video / image
     if (p.slides && p.slides.length > 0) {
@@ -591,11 +590,16 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
 
       if (slideEls.length > 1) {
         let idx = 0;
-        cell._slideshowTimer = setInterval(() => {
-          slideEls[idx].classList.remove('active');
-          idx = (idx + 1) % slideEls.length;
-          slideEls[idx].classList.add('active');
-        }, 5000);
+        const interval = 5000;
+        const offset = Math.random() * interval;
+        cell._slideshowTimeout = setTimeout(() => {
+          cell._slideshowTimeout = null;
+          cell._slideshowTimer = setInterval(() => {
+            slideEls[idx].classList.remove('active');
+            idx = (idx + 1) % slideEls.length;
+            slideEls[idx].classList.add('active');
+          }, interval);
+        }, offset);
       }
     } else if (isVideo(src)) {
       cell.querySelector('.pgrid-slides')?.remove();
