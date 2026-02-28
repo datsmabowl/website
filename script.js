@@ -995,15 +995,14 @@ function pgridAnimate(ts) {
   updateBoosts();
   pgridApplySize();
 
-  const { W } = pgridGetLayout();
-  const { cols, gap, fillet, waveAmp, waveFreq, mode } = PGRID;
+  const { W, H } = pgridGetLayout();
+  const { rows, cols, gap, fillet, waveAmp, waveFreq, mode } = PGRID;
 
   const leftRows  = leftCells.length  ? Math.ceil(leftCells.length  / cols) : 0;
   const rightRows = rightCells.length ? Math.ceil(rightCells.length / cols) : 0;
-  const totalRows = leftRows + rightRows;
 
-  // Row height fills the viewport across all interleaved rows
-  const rowH = totalRows > 0 ? (H - (totalRows - 1) * gap) / totalRows : H;
+  // rowH derived from PGRID.rows so cell size stays consistent across tabs
+  const rowH = (H - (rows - 1) * gap) / rows;
 
   layoutInterleaved(leftCells,  W, cols, leftRows,  gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left',  0, rowH);
   layoutInterleaved(rightCells, W, cols, rightRows, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right', 1, rowH);
