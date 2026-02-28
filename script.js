@@ -23,6 +23,26 @@
    ─────────────────────────────────────────────────────────*/
 const PROJECTS = [
   {
+    id:      "fictions",
+    title:   "Fictions",
+    media:   "video/preview/fictions.mp4",
+    poster:  "images/fictions.jpg",
+    url:     "",
+    tabs:    ["interactive", "development"],
+    filters: ["art"],
+    wide:    false,
+  },
+  {
+    id:      "wonder-studios-app",
+    title:   "Wonder Studios App",
+    media:   "video/preview/wonder-studios-app.mp4",
+    poster:  "images/wonder-studios-app.jpg",
+    url:     "",
+    tabs:    ["development", "interactive"],
+    filters: ["commercial"],
+    wide:    false,
+  },
+  {
     id:      "procedural-map",
     title:   "Procedural Map Generation",
     media:   "video/preview/procedural.mp4",
