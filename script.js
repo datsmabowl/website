@@ -254,7 +254,7 @@ const PROJECTS = [
   {
     id:      "antithetical-libraries",
     title:   "Antithetical Libraries",
-    media:   "images/antithetical-libraries.jpg",
+    slides:  ["images/antithetical-libraries-1.jpg", "images/antithetical-libraries-2.jpg", "images/antithetical-libraries-3.jpg", "images/antithetical-libraries-4.jpg"],
     url:     "https://bdr.space/antithetical-libraries/",
     tabs:    ["architecture"],
     filters: ["art"],
@@ -263,7 +263,7 @@ const PROJECTS = [
   {
     id:      "material-frequencies",
     title:   "Material Frequencies",
-    media:   "images/material-frequencies.jpg",
+    slides:  ["images/material-frequencies-1.jpg", "images/material-frequencies-2.jpg", "images/material-frequencies-3.jpg", "images/material-frequencies-4.jpg", "images/material-frequencies-5.jpg", "images/material-frequencies-6.jpg"],
     url:     "https://bdr.space/material-frequencies/",
     tabs:    ["architecture", "graphics", "development"],
     filters: ["art"],
@@ -272,7 +272,7 @@ const PROJECTS = [
   {
     id:      "sound-data-collages",
     title:   "Sound Data Collages",
-    media:   "images/sound-data-collages.jpg",
+    slides:  ["images/sound-data-collages-1.jpg", "images/sound-data-collages-2.jpg", "images/sound-data-collages-3.jpg", "images/sound-data-collages-4.jpg", "images/sound-data-collages-5.jpg", "images/sound-data-collages-6.jpg"],
     url:     "https://bdr.space/sound-data-collages/",
     tabs:    ["architecture", "graphics", "development"],
     filters: ["art"],
@@ -299,7 +299,7 @@ const PROJECTS = [
   {
     id:      "toha",
     title:   "ToHa",
-    media:   "images/toha.jpg",
+    slides:  ["images/toha.jpg", "images/toha2.jpg", "images/toha3.jpg", "images/toha5.jpg", "images/toha9.jpg", "images/toha-dekton.avif", "images/toha-designboom.jpg", "images/toha-dezeen.jpg"],
     url:     "https://bdr.space/toha-1/",
     tabs:    ["architecture"],
     filters: ["commercial"],
@@ -361,7 +361,34 @@ const PROJECTS = [
     media:   "video/preview/domestic-data.mp4",
     poster:  "video/domestic-data.jpg",
     url:     "",
-    tabs:    ["interactive, development"],
+    tabs:    ["interactive", "development"],
+    filters: ["art"],
+    wide:    false,
+  },
+  {
+    id:      "art-illustration",
+    title:   "Art & Illustration",
+    slides:  ["images/art-illustration-1.jpg", "images/art-illustration-2.png", "images/art-illustration-3.png", "images/art-illustration-4.png", "images/art-illustration-6.jpg", "images/art-illustration-7.jpg", "images/art-illustration-9.png", "images/art-illustration-10.jpg", "images/art-illustration-11.png", "images/art-illustration-15.png"],
+    url:     "https://bdr.space/art-illustration/",
+    tabs:    ["graphics"],
+    filters: ["art"],
+    wide:    false,
+  },
+  {
+    id:      "home-microphone-grid",
+    title:   "Home Microphone Grid",
+    slides:  ["images/home-microphone-grid-1.jpg", "images/home-microphone-grid-2.jpg", "images/home-microphone-grid-3.jpg", "images/home-microphone-grid-4.jpg", "images/home-microphone-grid-9.jpg"],
+    url:     "https://bdr.space/home-microphone-grid/",
+    tabs:    ["interactive", "development", "architecture"],
+    filters: ["art"],
+    wide:    false,
+  },
+  {
+    id:      "urbanism-political",
+    title:   "Urbanism is Political",
+    slides:  ["images/urbanism-political-1.jpg"],
+    url:     "https://bdr.space/everything-in-architecture-urbanism-is-political/",
+    tabs:    ["architecture"],
     filters: ["art"],
     wide:    false,
   },
@@ -454,7 +481,7 @@ function init() {
    ─────────────────────────────────────────────────────────*/
 function getVisibleProjects() {
   return PROJECTS.filter(p => {
-    if (!p.media) return false;
+    if (!p.media && !p.slides) return false;
     if (activeTab === "all") return true;
     return p.tabs && p.tabs.includes(activeTab);
   });
@@ -497,6 +524,7 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
   }
   while (pool.length > count) {
     const cell = pool.pop();
+    if (cell._slideshowTimer) clearInterval(cell._slideshowTimer);
     cell.remove();
   }
 
@@ -537,8 +565,40 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
     const titleEl = cell.querySelector('.cell-title');
     if (titleEl) titleEl.textContent = p.title || '';
 
-    // Swap between video and image as needed
-    if (isVideo(src)) {
+    // Clear any existing slideshow before reassigning
+    if (cell._slideshowTimer) {
+      clearInterval(cell._slideshowTimer);
+      delete cell._slideshowTimer;
+    }
+
+    // Swap media: slideshow / video / image
+    if (p.slides && p.slides.length > 0) {
+      cell.querySelectorAll('video, img, .pgrid-slides').forEach(el => el.remove());
+
+      const container = document.createElement('div');
+      container.className = 'pgrid-slides';
+      const slideEls = p.slides.map((s, idx) => {
+        const img = document.createElement('img');
+        img.src = s;
+        img.alt = p.title || '';
+        img.setAttribute('aria-hidden', 'true');
+        img.className = 'pgrid-slide' + (idx === 0 ? ' active' : '');
+        img.loading = idx === 0 ? 'eager' : 'lazy';
+        container.appendChild(img);
+        return img;
+      });
+      cell.insertBefore(container, cell.querySelector('.cell-title'));
+
+      if (slideEls.length > 1) {
+        let idx = 0;
+        cell._slideshowTimer = setInterval(() => {
+          slideEls[idx].classList.remove('active');
+          idx = (idx + 1) % slideEls.length;
+          slideEls[idx].classList.add('active');
+        }, 5000);
+      }
+    } else if (isVideo(src)) {
+      cell.querySelector('.pgrid-slides')?.remove();
       let vid = cell.querySelector('video');
       let img = cell.querySelector('img');
       if (img) { img.remove(); }
@@ -556,12 +616,14 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
         vid.play().catch(() => {});
       }
     } else {
+      cell.querySelector('.pgrid-slides')?.remove();
       let vid = cell.querySelector('video');
       let img = cell.querySelector('img');
       if (vid) { vid.remove(); }
       if (!img) {
         img = document.createElement('img');
         img.loading = 'lazy';
+        img.setAttribute('aria-hidden', 'true');
         cell.insertBefore(img, cell.querySelector('.cell-title'));
       }
       if (img.getAttribute('data-src') !== src) {
