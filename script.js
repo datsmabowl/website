@@ -462,9 +462,8 @@ function updateBoosts() {
    INIT
    ─────────────────────────────────────────────────────────*/
 function init() {
-  bindTabs();
+  bindTabs();       // also calls applyHash() which calls buildCells()
   bindControls();
-  buildCells();
   requestAnimationFrame(pgridAnimate);
   window.addEventListener('resize', pgridApplySize);
 
@@ -1007,17 +1006,33 @@ function pgridAnimate(ts) {
 /* ─────────────────────────────────────────────────────────
    TAB BINDING
    ─────────────────────────────────────────────────────────*/
+function setActiveTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".tab").forEach(b => {
+    const match = b.dataset.tab === tab;
+    b.classList.toggle("active", match);
+    b.setAttribute("aria-selected", match ? "true" : "false");
+  });
+  buildCells();
+}
+
 function bindTabs() {
   document.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => {
-      activeTab = btn.dataset.tab;
-      document.querySelectorAll(".tab").forEach(b => {
-        b.classList.toggle("active", b === btn);
-        b.setAttribute("aria-selected", b === btn ? "true" : "false");
-      });
-      buildCells();
+      const tab = btn.dataset.tab;
+      history.replaceState(null, '', tab === 'all' ? location.pathname : '#' + tab);
+      setActiveTab(tab);
     });
   });
+
+  // Activate tab from hash on load and on back/forward navigation
+  function applyHash() {
+    const hash = location.hash.slice(1);
+    const valid = [...document.querySelectorAll(".tab")].map(b => b.dataset.tab);
+    setActiveTab(valid.includes(hash) ? hash : 'all');
+  }
+  window.addEventListener('hashchange', applyHash);
+  applyHash();
 }
 
 /* ─────────────────────────────────────────────────────────
