@@ -590,7 +590,7 @@ function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) 
 
       if (slideEls.length > 1) {
         let idx = 0;
-        const interval = 5000;
+        const interval = 3000;
         const offset = Math.random() * interval;
         cell._slideshowTimeout = setTimeout(() => {
           cell._slideshowTimeout = null;
