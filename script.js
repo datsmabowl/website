@@ -650,27 +650,20 @@ function buildCells() {
   }
   noResults.hidden = true;
 
-  const nCols = PGRID.cols;
-  const totalRows = PGRID.rows;
-  const leftMaxRows  = Math.ceil(totalRows / 2);
-  const rightMaxRows = Math.floor(totalRows / 2);
-  leftCols  = nCols;
-  rightCols = nCols;
+  const total = PGRID.rows * PGRID.cols;
+  const mid = Math.ceil(projects.length / 2);
+  const leftProjects  = projects.slice(0, mid);
+  const rightProjects = projects.slice(mid);
 
-  // Interleave: even visual rows → left grid, odd visual rows → right grid
-  // Cap at PGRID.rows total visual rows so the grid fills (not overflows) the viewport
-  const leftProjects = [], rightProjects = [];
-  for (let vr = 0; vr * nCols < projects.length; vr++) {
-    const isLeft = vr % 2 === 0;
-    if (isLeft  && leftProjects.length  >= leftMaxRows  * nCols) continue;
-    if (!isLeft && rightProjects.length >= rightMaxRows * nCols) continue;
-    const batch = projects.slice(vr * nCols, (vr + 1) * nCols);
-    if (isLeft) leftProjects.push(...batch);
-    else rightProjects.push(...batch);
-  }
+  const leftN  = Math.min(total, leftProjects.length);
+  const rightN = Math.min(total, rightProjects.length);
 
-  ensureCells(document.getElementById('pgridLeft'),  leftCells,  leftProjects.length,  leftProjects,  leftCols);
-  ensureCells(document.getElementById('pgridRight'), rightCells, rightProjects.length, rightProjects, rightCols);
+  // Choose column count so there are always ≥ 2 rows (min 2x2 grid)
+  leftCols  = leftN  ? Math.min(PGRID.cols, Math.ceil(leftN  / 2)) : PGRID.cols;
+  rightCols = rightN ? Math.min(PGRID.cols, Math.ceil(rightN / 2)) : PGRID.cols;
+
+  ensureCells(document.getElementById('pgridLeft'),  leftCells,  leftN,  leftProjects,  leftCols);
+  ensureCells(document.getElementById('pgridRight'), rightCells, rightN, rightProjects, rightCols);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -754,18 +747,29 @@ function pgridApplySize() {
   const gridRight = document.getElementById('pgridRight');
   if (!container) return;
 
-  const { W, H } = pgridGetLayout();
+  const { W, H, halfW, gap } = pgridGetLayout();
+  const rightEmpty = rightCells.length === 0;
 
   container.style.width  = W + 'px';
   container.style.height = H + 'px';
 
-  // Both grids span the full width; rows interleave in Y space
-  [gridLeft, gridRight].forEach(g => {
-    g.style.left   = '0px';
-    g.style.top    = '0px';
-    g.style.width  = W + 'px';
-    g.style.height = H + 'px';
-  });
+  if (rightEmpty) {
+    gridLeft.style.left   = '0px';
+    gridLeft.style.top    = '0px';
+    gridLeft.style.width  = W + 'px';
+    gridLeft.style.height = H + 'px';
+    gridRight.style.width  = '0px';
+    gridRight.style.height = '0px';
+  } else {
+    gridLeft.style.left   = '0px';
+    gridLeft.style.top    = '0px';
+    gridLeft.style.width  = halfW + 'px';
+    gridLeft.style.height = H + 'px';
+    gridRight.style.left   = (halfW + gap) + 'px';
+    gridRight.style.top    = '0px';
+    gridRight.style.width  = halfW + 'px';
+    gridRight.style.height = H + 'px';
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -926,65 +930,6 @@ function layoutV(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
 }
 
 /* ─────────────────────────────────────────────────────────
-   LAYOUT — INTERLEAVED (unified grid, rows alternate A/B)
-   ─────────────────────────────────────────────────────────*/
-function layoutInterleaved(cells, W, nCols, nRows, gap, fillet, t, mode, waveAmp, waveFreq, half, rowOffset, rowH) {
-  for (let r = 0; r < nRows; r++) {
-    let rowCount = 0;
-    for (let c = 0; c < nCols; c++) {
-      if (cells[r * nCols + c]) rowCount++;
-    }
-    if (rowCount === 0) continue;
-
-    // Row height: base rowH, expanded on click
-    let rowBoost = 1;
-    for (let c = 0; c < nCols; c++) {
-      const b = getCellBoost(half, r, c);
-      if (b > rowBoost) rowBoost = b;
-    }
-    const thisRowH = rowH * rowBoost;
-
-    // Y position in the unified interleaved grid
-    const visualRow = rowOffset + r * 2;
-    const y = visualRow * (rowH + gap);
-
-    const rowAvailW = W - (rowCount - 1) * gap;
-
-    // Column weights — wave + click boost blend
-    let maxBlend = 0;
-    const cellBoostVals = [];
-    for (let c = 0; c < nCols; c++) {
-      const b = getCellBoost(half, r, c);
-      cellBoostVals[c] = b;
-      const bl = (b - 1) / (SELECT_TARGET - 1);
-      if (bl > maxBlend) maxBlend = bl;
-    }
-    const ws = []; let wSum = 0;
-    for (let c = 0; c < nCols; c++) {
-      if (!cells[r * nCols + c]) { ws[c] = 0; continue; }
-      const base = cellWeight(r, c, nRows, nCols, t, mode, waveAmp, waveFreq);
-      const target = cellBoostVals[c] > 1 ? cellBoostVals[c] : 1;
-      ws[c] = base * (1 - maxBlend) + target * maxBlend;
-      wSum += ws[c];
-    }
-
-    let cx = 0;
-    for (let c = 0; c < nCols; c++) {
-      const cell = cells[r * nCols + c];
-      if (!cell) continue;
-      const w = rowAvailW * ws[c] / wSum;
-      const f = Math.min(fillet, Math.min(w, thisRowH) / 2);
-      cell.style.left   = cx + 'px';
-      cell.style.top    = y + 'px';
-      cell.style.width  = w + 'px';
-      cell.style.height = thisRowH + 'px';
-      cell.style.borderRadius = f + 'px';
-      cx += w + gap;
-    }
-  }
-}
-
-/* ─────────────────────────────────────────────────────────
    ANIMATION LOOP
    ─────────────────────────────────────────────────────────*/
 function pgridAnimate(ts) {
@@ -992,20 +937,21 @@ function pgridAnimate(ts) {
   pgridLastTs = ts;
   pgridTime += dt * PGRID.speed / 35;
 
+  // Update per-cell boosts (all easing independently)
   updateBoosts();
+
   pgridApplySize();
 
-  const { W, H } = pgridGetLayout();
+  const { W, halfW, H } = pgridGetLayout();
   const { rows, cols, gap, fillet, waveAmp, waveFreq, mode } = PGRID;
+  const rightEmpty = rightCells.length === 0;
 
-  const leftRows  = leftCells.length  ? Math.ceil(leftCells.length  / cols) : 0;
-  const rightRows = rightCells.length ? Math.ceil(rightCells.length / cols) : 0;
+  // Rows are derived from effective column count; always at least 2
+  const leftRows  = leftCells.length  ? Math.max(2, Math.min(rows, Math.ceil(leftCells.length  / leftCols)))  : rows;
+  const rightRows = rightCells.length ? Math.max(2, Math.min(rows, Math.ceil(rightCells.length / rightCols))) : rows;
 
-  // rowH derived from PGRID.rows so cell size stays consistent across tabs
-  const rowH = (H - (rows - 1) * gap) / rows;
-
-  layoutInterleaved(leftCells,  W, cols, leftRows,  gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left',  0, rowH);
-  layoutInterleaved(rightCells, W, cols, rightRows, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right', 1, rowH);
+  layoutH(leftCells,  0, 0, rightEmpty ? W : halfW, H, leftRows,  leftCols,  gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left');
+  layoutV(rightCells, 0, 0, halfW,                  H, rightRows, rightCols, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right');
 
   requestAnimationFrame(pgridAnimate);
 }
@@ -1032,7 +978,6 @@ function bindTabs() {
     });
   });
 
-  // Activate tab from hash on load and on back/forward navigation
   function applyHash() {
     const hash = location.hash.slice(1);
     const valid = [...document.querySelectorAll(".tab")].map(b => b.dataset.tab);
