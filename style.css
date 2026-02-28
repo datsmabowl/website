@@ -215,8 +215,8 @@ main {
   background: var(--bg);
   overflow: hidden;
   position: relative;
-  padding-bottom: 25px;
 }
+
 
 .pgrid-wrap {
   width: 100%;

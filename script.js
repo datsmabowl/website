@@ -58,7 +58,7 @@ const PROJECTS = [
     media:   "video/preview/chivas.mp4",
     poster:  "video/chivas.jpg",
     url:     "https://bdr.space/chivas-regal/",
-    tabs:    ["generative-ai"],
+    tabs:    ["generative-ai, development"],
     filters: ["commercial"],
     wide:    false,
   },
@@ -88,7 +88,7 @@ const PROJECTS = [
     media:   "video/preview/kallida.mp4",
     poster:  "video/kallida.jpg",
     url:     "https://bdr.space/kallida2/",
-    tabs:    ["generative-ai"],
+    tabs:    ["generative-ai, graphics"],
     filters: ["commercial"],
     wide:    false,
   },
@@ -392,6 +392,8 @@ const PGRID = {
 let activeTab = "all";
 let leftCells  = [];
 let rightCells = [];
+let leftCols   = PGRID.cols;
+let rightCols  = PGRID.cols;
 let pgridTime  = 0;
 let pgridLastTs = 0;
 
@@ -464,7 +466,7 @@ function isVideo(src) {
 /* ─────────────────────────────────────────────────────────
    CELL MANAGEMENT
    ─────────────────────────────────────────────────────────*/
-function ensureCells(parent, pool, count, projects) {
+function ensureCells(parent, pool, count, projects, effectiveCols = PGRID.cols) {
   // Create / remove cells to match count
   while (pool.length < count) {
     const cell = document.createElement('a');
@@ -502,14 +504,14 @@ function ensureCells(parent, pool, count, projects) {
 
   // Assign projects to cells (cycle if needed)
   for (let i = 0; i < count; i++) {
-    const p = projects[i % projects.length];
+    const p = projects[i];
     const cell = pool[i];
     const src = p.media;
 
     // Store grid position for click-to-expand
     cell._pgridHalf = half;
-    cell._pgridRow  = Math.floor(i / PGRID.cols);
-    cell._pgridCol  = i % PGRID.cols;
+    cell._pgridRow  = Math.floor(i / effectiveCols);
+    cell._pgridCol  = i % effectiveCols;
 
     // Click handler: toggle expansion (prevent link navigation)
     if (!cell._pgridClickBound) {
@@ -585,9 +587,17 @@ function buildCells() {
   const total = PGRID.rows * PGRID.cols;
   const mid = Math.ceil(projects.length / 2);
   const leftProjects  = projects.slice(0, mid);
-  const rightProjects = projects.slice(mid).length ? projects.slice(mid) : projects;
-  ensureCells(document.getElementById('pgridLeft'),  leftCells,  total, leftProjects);
-  ensureCells(document.getElementById('pgridRight'), rightCells, total, rightProjects);
+  const rightProjects = projects.slice(mid);
+
+  const leftN  = Math.min(total, leftProjects.length);
+  const rightN = Math.min(total, rightProjects.length);
+
+  // Choose column count so there are always ≥ 2 rows (min 2x2 grid)
+  leftCols  = leftN  ? Math.min(PGRID.cols, Math.ceil(leftN  / 2)) : PGRID.cols;
+  rightCols = rightN ? Math.min(PGRID.cols, Math.ceil(rightN / 2)) : PGRID.cols;
+
+  ensureCells(document.getElementById('pgridLeft'),  leftCells,  leftN,  leftProjects,  leftCols);
+  ensureCells(document.getElementById('pgridRight'), rightCells, rightN, rightProjects, rightCols);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -658,9 +668,8 @@ function pgridGetLayout() {
     availH = window.innerHeight - hH - fH;
   }
 
-  // Width = wrap width (capped at --max-w), height from 16:9 but clamped
   const W = availW;
-  const H = Math.min(Math.floor(W * 9 / 16), availH);
+  const H = availH;
 
   const halfW = (W - gap) / 2;
   return { W, H, halfW, gap };
@@ -673,19 +682,28 @@ function pgridApplySize() {
   if (!container) return;
 
   const { W, H, halfW, gap } = pgridGetLayout();
+  const rightEmpty = rightCells.length === 0;
 
   container.style.width  = W + 'px';
   container.style.height = H + 'px';
 
-  gridLeft.style.left   = '0px';
-  gridLeft.style.top    = '0px';
-  gridLeft.style.width  = halfW + 'px';
-  gridLeft.style.height = H + 'px';
-
-  gridRight.style.left   = (halfW + gap) + 'px';
-  gridRight.style.top    = '0px';
-  gridRight.style.width  = halfW + 'px';
-  gridRight.style.height = H + 'px';
+  if (rightEmpty) {
+    gridLeft.style.left   = '0px';
+    gridLeft.style.top    = '0px';
+    gridLeft.style.width  = W + 'px';
+    gridLeft.style.height = H + 'px';
+    gridRight.style.width  = '0px';
+    gridRight.style.height = '0px';
+  } else {
+    gridLeft.style.left   = '0px';
+    gridLeft.style.top    = '0px';
+    gridLeft.style.width  = halfW + 'px';
+    gridLeft.style.height = H + 'px';
+    gridRight.style.left   = (halfW + gap) + 'px';
+    gridRight.style.top    = '0px';
+    gridRight.style.width  = halfW + 'px';
+    gridRight.style.height = H + 'px';
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -724,6 +742,15 @@ function layoutH(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
   }
 
   for (let r = 0; r < nRows; r++) {
+    // Count cells that actually exist in this row; skip empty rows
+    let rowCount = 0;
+    for (let c = 0; c < nCols; c++) {
+      if (cells[r * nCols + c]) rowCount++;
+    }
+    if (rowCount === 0) continue;
+    // Partial rows get their full width distributed among only existing cells
+    const rowAvailW = gridW - (rowCount - 1) * gap;
+
     // Find max blend in this row to freeze all siblings too
     let maxBlend = 0;
     const cellBoostVals = [];
@@ -735,6 +762,7 @@ function layoutH(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
     }
     const ws = []; let wSum = 0;
     for (let c = 0; c < nCols; c++) {
+      if (!cells[r * nCols + c]) { ws[c] = 0; continue; }
       const base = cellWeight(r, c, nRows, nCols, t, mode, waveAmp, waveFreq);
       // Blend ALL cells: boosted one toward its boost, siblings toward 1.0
       const target = cellBoostVals[c] > 1 ? cellBoostVals[c] : 1;
@@ -743,17 +771,16 @@ function layoutH(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
     }
     let cx = 0;
     for (let c = 0; c < nCols; c++) {
-      const w = availW * ws[c] / wSum;
       const idx = r * nCols + c;
       const cell = cells[idx];
-      if (cell) {
-        const f = Math.min(fillet, Math.min(w, rH[r]) / 2);
-        cell.style.left   = (ox + cx) + 'px';
-        cell.style.top    = (oy + rY[r]) + 'px';
-        cell.style.width  = w + 'px';
-        cell.style.height = rH[r] + 'px';
-        cell.style.borderRadius = f + 'px';
-      }
+      if (!cell) continue;
+      const w = rowAvailW * ws[c] / wSum;
+      const f = Math.min(fillet, Math.min(w, rH[r]) / 2);
+      cell.style.left   = (ox + cx) + 'px';
+      cell.style.top    = (oy + rY[r]) + 'px';
+      cell.style.width  = w + 'px';
+      cell.style.height = rH[r] + 'px';
+      cell.style.borderRadius = f + 'px';
       cx += w + gap;
     }
   }
@@ -793,6 +820,15 @@ function layoutV(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
   }
 
   for (let c = 0; c < nCols; c++) {
+    // Count cells that actually exist in this column; skip empty columns
+    let colCount = 0;
+    for (let r = 0; r < nRows; r++) {
+      if (cells[r * nCols + c]) colCount++;
+    }
+    if (colCount === 0) continue;
+    // Partial columns get their full height distributed among only existing cells
+    const colAvailH = gridH - (colCount - 1) * gap;
+
     // Find max blend in this column to freeze all siblings too
     let maxBlend = 0;
     const cellBoostVals = [];
@@ -804,6 +840,7 @@ function layoutV(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
     }
     const ws = []; let wSum = 0;
     for (let r = 0; r < nRows; r++) {
+      if (!cells[r * nCols + c]) { ws[r] = 0; continue; }
       const base = cellWeight(c, r, nCols, nRows, t, mode, waveAmp, waveFreq);
       const target = cellBoostVals[r] > 1 ? cellBoostVals[r] : 1;
       ws[r] = base * (1 - maxBlend) + target * maxBlend;
@@ -811,17 +848,16 @@ function layoutV(cells, ox, oy, gridW, gridH, nRows, nCols, gap, fillet, t, mode
     }
     let cy = 0;
     for (let r = 0; r < nRows; r++) {
-      const h = availH * ws[r] / wSum;
       const idx = r * nCols + c;
       const cell = cells[idx];
-      if (cell) {
-        const f = Math.min(fillet, Math.min(cW[c], h) / 2);
-        cell.style.left   = (ox + cX[c]) + 'px';
-        cell.style.top    = (oy + cy) + 'px';
-        cell.style.width  = cW[c] + 'px';
-        cell.style.height = h + 'px';
-        cell.style.borderRadius = f + 'px';
-      }
+      if (!cell) continue;
+      const h = colAvailH * ws[r] / wSum;
+      const f = Math.min(fillet, Math.min(cW[c], h) / 2);
+      cell.style.left   = (ox + cX[c]) + 'px';
+      cell.style.top    = (oy + cy) + 'px';
+      cell.style.width  = cW[c] + 'px';
+      cell.style.height = h + 'px';
+      cell.style.borderRadius = f + 'px';
       cy += h + gap;
     }
   }
@@ -840,11 +876,16 @@ function pgridAnimate(ts) {
 
   pgridApplySize();
 
-  const { halfW, H } = pgridGetLayout();
+  const { W, halfW, H } = pgridGetLayout();
   const { rows, cols, gap, fillet, waveAmp, waveFreq, mode } = PGRID;
+  const rightEmpty = rightCells.length === 0;
 
-  layoutH(leftCells,  0, 0, halfW, H, rows, cols, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left');
-  layoutV(rightCells, 0, 0, halfW, H, rows, cols, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right');
+  // Rows are derived from effective column count; always at least 2
+  const leftRows  = leftCells.length  ? Math.max(2, Math.min(rows, Math.ceil(leftCells.length  / leftCols)))  : rows;
+  const rightRows = rightCells.length ? Math.max(2, Math.min(rows, Math.ceil(rightCells.length / rightCols))) : rows;
+
+  layoutH(leftCells,  0, 0, rightEmpty ? W : halfW, H, leftRows,  leftCols,  gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'left');
+  layoutV(rightCells, 0, 0, halfW,                  H, rightRows, rightCols, gap, fillet, pgridTime, mode, waveAmp, waveFreq, 'right');
 
   requestAnimationFrame(pgridAnimate);
 }
