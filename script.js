@@ -269,7 +269,7 @@ const PROJECTS = [
     media:   "video/preview/misty-tropics.mp4",
     poster:  "images/misty-tropics.jpg",
     url:     "https://bdr.space/misty-tropics/",
-    tabs:    ["interactive", "development"],
+    tabs:    ["interactive"],
     filters: ["art"],
     wide:    false,
   },
