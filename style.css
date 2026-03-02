@@ -223,6 +223,7 @@ main {
   width: 100%;
   padding: 0 var(--pad);
   height: 100%;
+  min-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -280,25 +281,48 @@ main {
   opacity: 1;
 }
 
-/* Title overlay — hidden by default, shown on hover */
-.pgrid-cell .cell-title {
+/* Info footer — title + description, bottom-anchored */
+.cell-footer {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 6px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.68));
+  padding-top: 22px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.pgrid-cell:hover .cell-footer,
+.pgrid-cell.selected .cell-footer {
+  opacity: 1;
+}
+
+.cell-title {
+  display: block;
+  padding: 5px 8px 3px;
   font-size: 11px;
   font-weight: 500;
   color: #fff;
-  background: linear-gradient(transparent, rgba(0,0,0,0.6));
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
   line-height: 1.3;
 }
 
-.pgrid-cell:hover .cell-title {
-  opacity: 1;
+.cell-desc-wrap {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cell-desc {
+  padding: 1px 8px 6px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.78);
+  line-height: 1.45;
+}
+
+.pgrid-cell.selected .cell-desc-wrap {
+  max-height: 5em;
 }
 
 /* ─── No Results ────────────────────────────────────────── */
